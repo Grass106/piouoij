@@ -1,0 +1,938 @@
+import runloop
+import motor
+import motor_pair
+import color_sensor
+from hub import port
+from app import linegraph
+import time
+from hub import motion_sensor
+
+robot = 1
+diameter = 8.8
+wheelbase = 14.4# Distance between left and right wheels in cm
+
+if robot == 1:
+    #global variables
+    # robot 1
+    motor_port_l = port.A
+    motor_port_r = port.E
+    front_arm_motor = port.D
+    back_arm_motor = port.C
+    kp_speed = 2.0
+    kp_yaw_linear = 2.0
+    kp_yaw_angle = 0.3
+    min_speed = 50
+    min_speed_angle = 50
+    max_speed_angle = 150
+    max_accel_angle = 500
+    max_speed = 500
+    max_accel = 500
+else:
+    # robot 2
+    motor_port_l = port.F
+    motor_port_r = port.D
+    front_arm_motor = port.C
+    back_arm_motor = port.B
+    kp_speed = 1.0
+    kp_yaw_linear = 0.5
+    kp_yaw_angle = 0.5#0.05
+    min_speed = 120
+    min_speed_angle = 10
+    max_speed_angle = 90
+    max_accel_angle = 500
+    max_speed = 500
+    max_accel = 500
+
+motor_pair.pair(motor_pair.PAIR_1, motor_port_l, motor_port_r)
+
+# Global target yaw angle in decidegrees (updated by move_turn function)
+target_yaw_decidegrees = 0
+
+# Production mode flag - set to True to disable all prints and graphs
+production = True
+
+
+###################
+## Save to slot 0:
+
+#async def main():
+#
+    # zero the motor
+#    await move_arm_to_degree(front_arm_motor, 0, motor.CLOCKWISE, 1000)
+#    await move_arm_to_degree(back_arm_motor, 0, motor.CLOCKWISE, 1000)
+
+
+## Save to slot 1:
+#async def main():
+#    await right_missions()
+
+## Save to slot 2:
+## async def main():
+   ## await left_missions()
+
+## Save to slot 3:
+#async def main():
+    #await move_arm_to_degree(back_arm_motor, -200, motor.COUNTERCLOCKWISE) #down
+    #await left_missions1()
+
+## Save to slot 4: Test move_turn / move_turn2
+
+async def main():
+    await moverock()
+
+
+#async def main():
+#    target_angles = [-10, 0, 10, 0, -30, 0, 30, 0, -90, 0, 90, 0, -180, 0, 180, 0]
+#    #target_angles = [30]
+#
+#    # Start timing the sequence
+#    sequence_start_time = time.ticks_us()
+#
+#    for angle in target_angles:
+#        #await move_turn2(angle, kd_yaw = 0.225, kp_yaw = 1.0, tolerance_decidegrees=10)
+#        #await move_turn2(angle, kd_yaw = 0.16, kp_yaw = 1.0, tolerance_decidegrees=10)
+#        #await move_turn2(angle, kd_yaw = 0.0, kp_yaw = 1.0, tolerance_decidegrees=10)
+#        await move_turn2(angle)
+#
+#    # Calculate and print total time
+#    total_time_us = time.ticks_diff(time.ticks_us(), sequence_start_time)
+#    total_time_sec = total_time_us / 1000000.0
+#    if not production:
+#        print("Total sequence time:", total_time_sec, "seconds (", len(target_angles), "turns)")
+#        print("Average time per turn:", total_time_sec/len(target_angles), "seconds")
+
+## Save to slot 5: Test move_straight_line / move_straight_line2
+'''
+async def main():
+    # Pre-launch to reset yaw
+    await pre_launch()
+
+    # Test distances: forward and backward in various lengths
+    test_distances = [10, -10, 20, -20, 30, -30, 50, -50]
+
+    # Start timing the sequence
+    sequence_start_time = time.ticks_us()
+
+    for distance in test_distances:
+        # Test with PD control
+        #await move_straight_line(distance, kp_yaw=2.0, kd_yaw=0.0)# P-only
+        #await move_straight_line(distance, kp_yaw=2.0, kd_yaw=0.1)# PD control
+
+        # Test with geometric control
+        await move_straight_line2(distance, r_position=0.9, r_velocity=0.05)
+
+        await runloop.sleep_ms(500)# Brief pause between moves
+
+    # Calculate and print total time
+    total_time_us = time.ticks_diff(time.ticks_us(), sequence_start_time)
+    total_time_sec = total_time_us / 1000000.0
+    if not production:
+        print("Total sequence time:", total_time_sec, "seconds (", len(test_distances), "moves)")
+        print("Average time per move:", total_time_sec/len(test_distances), "seconds")
+'''
+###################
+
+async def left_missions1():
+
+    await pre_launch()
+    #mission no. 12
+    await move_arm_to_degree(front_arm_motor, -200, motor.SHORTEST_PATH, 1000)
+    await move_straight_line(7)
+    await move_turn2(90)
+    ### raise front arm
+    await move_straight_line(-45.5)
+    await move_turn2(30)
+    #await move_straight_line(-2.0)
+    ### lower the arm
+    #await move_arm_to_degree(back_arm_motor, -200, motor.COUNTERCLOCKWISE) #down
+    await move_arm_to_degree(back_arm_motor, 0, motor.COUNTERCLOCKWISE) #down
+    await move_arm_to_degree(back_arm_motor, -180, motor.COUNTERCLOCKWISE) #down
+    ####
+    await move_turn2(5)
+    await move_turn2(20)
+    await move_straight_line(6)
+    await move_arm_to_degree(back_arm_motor, 40, motor.CLOCKWISE) #up
+    await move_turn2(0)
+    # pull the sand lever
+    await move_straight_line(-13)
+    await move_turn2(90)
+    await move_straight_line(10)
+    await move_arm_to_degree(back_arm_motor, -180, motor.COUNTERCLOCKWISE) #down
+
+    # push the ship
+    await move_straight_line(-16)
+    await move_straight_line(13.5)
+
+    # point at the ring
+    await move_turn2(115)
+    # lift the arm, ready to be above the ring
+    await move_arm_to_degree(back_arm_motor, -90, motor.CLOCKWISE) #up
+    # Move towards the ring
+    await move_straight_line(-56)
+    await move_arm_to_degree(back_arm_motor, -180, motor.COUNTERCLOCKWISE) #down
+    await move_turn2(45)
+    await move_arm_to_degree(back_arm_motor, -90, motor.CLOCKWISE) #up
+    await move_turn2(0)
+    await move_arm_to_degree(back_arm_motor, -180, motor.COUNTERCLOCKWISE) #down
+    await move_straight_line(-14)
+    for i in range(4):
+        await move_turn2(-20, tolerance_decidegrees=30)
+        await move_turn2(0, tolerance_decidegrees=30)
+    await move_straight_line(8)
+
+    #await move_arm_to_degree(back_arm_motor, 0, motor.COUNTERCLOCKWISE)
+
+
+
+async def left_missions():
+    await left_1_2_3() # two left ones and ayana
+    await mission4()
+    await mission2b()
+    await return_to_base_from_mission_2()
+
+async def mission2b():
+    await move_straight_line(-4)
+    await move_turn2(90)
+    await move_straight_line(28) #25
+    await move_turn2(45)
+    await move_straight_line(-10)
+    await move_arm_to_degree(front_arm_motor, 0, motor.CLOCKWISE, 1000)
+    await move_straight_line(13) #15
+
+async def return_to_base_from_mission_2():
+    await move_straight_line(-8) #-10
+    await move_arm_to_degree(front_arm_motor, -200, motor.COUNTERCLOCKWISE, 1000)
+    await move_turn2(-20)
+    await move_arm_to_degree(front_arm_motor, 0, motor.CLOCKWISE, 1000)
+    await move_straight_line(-63.5)
+
+async def mission4():
+    await move_straight_line(13)
+    await move_turn2(213) #216
+    await move_straight_line(-5)
+
+    await move_arm_to_degree(front_arm_motor, 0, motor.CLOCKWISE, 1000)
+
+    await move_straight_line(5) #5
+    await move_arm_to_degree(front_arm_motor, -200, motor.COUNTERCLOCKWISE, 1000)
+
+async def mission11():
+    # Run at 1000 velocity for 1 second
+    await move_turn2(1.5)
+    await motor.run_for_time(front_arm_motor, 1000, 1000)
+    await move_turn2(1.5)
+    await motor.run_for_time(front_arm_motor, 1000, 1000)
+    await move_turn2(1.5)
+    await motor.run_for_time(front_arm_motor, 1000, 1000)
+
+
+async def moverock():
+    ###await move_arm_to_degree(front_arm_motor, -20, motor.COUNTERCLOCKWISE, 1000)
+    ##await move_arm_to_degree(front_arm_motor, -120, motor.COUNTERCLOCKWISE, 1000)#Was -75
+    await move_arm_to_degree(front_arm_motor, 0, motor.SHORTEST_PATH, 1000)
+    #Was -75
+
+    for i in range(3):
+        
+        #await runloop.sleep_ms(2000)
+        
+        #await motor.run_to_absolute_position(front_arm_motor, -260, 10000, direction=motor.COUNTERCLOCKWISE)
+        #await motor.run_for_time(front_arm_motor, 500, -10000)
+        await move_arm_to_degree(front_arm_motor, -200, motor.COUNTERCLOCKWISE, 1000)
+        await runloop.sleep_ms(2000)
+        #await motor.run_for_time(front_arm_motor, 500, 10000)
+        await move_arm_to_degree(front_arm_motor, -35, motor.CLOCKWISE, 1000)
+        #await motor.run_to_absolute_position(front_arm_motor, -0, 10000, direction=motor.CLOCKWISE, acceleration=1000)
+        #runloop.sleep_ms(200)
+        await runloop.sleep_ms(2000)
+        
+    
+
+async def left_1_2_3():
+    # Pre-launch routine
+    #################
+    await move_arm_to_degree(front_arm_motor, 0, motor.SHORTEST_PATH, 1000)
+    await pre_launch()
+
+    # Missions 1 & 2
+    #################
+    # Lift the arm into the correct position to skewer the loop in mission 2
+    await move_arm_to_degree(front_arm_motor, -120, motor.COUNTERCLOCKWISE, 1000)#Was -75
+    # Move forward until:
+    #- the front arm has skewered the loop in mission 2
+    #- the side arm has passed over mission 1, releasing the first flap
+    await move_straight_line(67)
+    # Throw the loop from mission 2 behind us
+    #await motor.run_for_degrees(front_arm_motor, -470, 10000)
+    #await motor.run_for_degrees(front_arm_motor, 470, 10000)
+    # Move back over mission 1 releasing the second flap and capturing the shovel
+    await move_straight_line(-26, kp_yaw=2)
+    # I'm not sure if this raise is neccessary since we move it back to zero in 2 steps and it's already at 80 degress
+    #await move_arm_to_degree(front_arm_motor, -65, motor.CLOCKWISE, 10000)
+    # Move into the corner and turn to face mission 3
+    await move_straight_line(28)
+    await move_turn2(-90)
+    # Lower the front arm to ground, ready to slide in under mission 3
+    await move_arm_to_degree(front_arm_motor, 0, motor.CLOCKWISE)
+    # Move alongside mission 3
+    await move_straight_line(25) #23
+    # Slide the front arm under mission 3's ramp
+    await move_turn2(292) #Was 287
+    #Arm is under Ayana ^
+
+    # Lift the minecart, then turn away with arm still raise
+
+    await move_arm_to_degree(front_arm_motor, -230, motor.COUNTERCLOCKWISE, 300)
+    #runloop.sleep_ms(8000)
+
+    # Shake the arm a little
+    await move_arm_to_degree(front_arm_motor, -190, motor.CLOCKWISE)
+    #runloop.sleep_ms(1000)
+    await move_arm_to_degree(front_arm_motor, -230, motor.COUNTERCLOCKWISE, 100)
+    #runloop.sleep_ms(1000)
+
+    # Move arm down then slide out from mission 3
+    await move_arm_to_degree(front_arm_motor, 0, motor.CLOCKWISE)
+
+    await move_turn2(270)
+    await move_arm_to_degree(front_arm_motor, -100, motor.COUNTERCLOCKWISE)
+
+    # Try not to turn as directly towards mission 4
+    await move_turn2(245)        ######
+
+async def right_missions():
+    await right_missions_stage_1()
+    await right_missions_stage_2()
+
+async def right_missions_stage_1():
+
+    # Pre-launch routine
+    #################
+    await move_arm_to_degree(front_arm_motor, 0, motor.SHORTEST_PATH, 1000)
+    await move_arm_to_degree(back_arm_motor, -200, motor.COUNTERCLOCKWISE) #down
+    await pre_launch()
+
+    # Right side - run 1 (Mission 09, )
+    #await move_straight_line(-0.2)
+    await move_straight_line(10)
+    await move_turn2(51.0)
+
+    await move_arm_to_degree(front_arm_motor, -45, motor.COUNTERCLOCKWISE)
+    await move_straight_line(28.0)
+    await move_turn2(80.0)
+
+    # Right side - run 1 (Mission 06,)
+    await move_arm_to_degree(front_arm_motor, -120, motor.COUNTERCLOCKWISE)
+
+    await move_turn2(-0)
+    await move_straight_line(26.1)
+    await move_arm_to_degree(front_arm_motor, -105, motor.CLOCKWISE)
+    await move_turn2(-48)
+    await move_straight_line(2.5)
+
+    #mission 3 (table flip)
+    await move_turn2(-7) # min_speed=50
+    await move_straight_line(4.2) #2.1
+    await move_arm_to_degree(front_arm_motor, -69, motor.CLOCKWISE)
+    await move_turn2(70)
+    await move_arm_to_degree(front_arm_motor, -105, motor.COUNTERCLOCKWISE)
+
+
+async def right_missions_stage_2():
+    await move_straight_line(55)
+    # Face the collapsed tower
+    await move_turn2(220)
+    await move_arm_to_degree(front_arm_motor, -50, motor.CLOCKWISE)
+    await move_straight_line(27)
+    await move_straight_line(-15) #-16
+
+    await move_arm_to_degree(front_arm_motor, -250, motor.COUNTERCLOCKWISE)
+    await move_turn2(187)
+    await move_arm_to_degree(front_arm_motor, -100, motor.CLOCKWISE)
+    await move_straight_line(-13)
+
+    ##################
+    # Travel to left side
+    ##################
+    await move_turn2(166) #175
+    await move_straight_line(54)
+    await move_turn2(106)
+    await move_straight_line(83)
+
+    # Lower the arm for the next section
+    await move_arm_to_degree(front_arm_motor, 0, motor.SHORTEST_PATH, 1000)
+
+#####################
+# Utility functions
+#####################
+
+def distance_to_motor_degrees(distance_cm):
+    """Convert linear distance in cm to motor rotation degrees"""
+    motor_degrees = distance_cm * 360 / (diameter * 3.141592)
+    return motor_degrees
+
+def motor_degrees_to_distance(motor_degrees):
+    """Convert motor rotation degrees to linear distance in cm"""
+    distance_cm = motor_degrees * (diameter * 3.141592) / 360
+    return distance_cm
+
+def wrap_angle_error_decidegrees(error_decidegrees):
+    """
+    Wrap angle error to the range [-1800, 1800] decidegrees (equivalent to [-180, 180] degrees).
+    This handles the discontinuity at ±180 degrees.
+
+    Args:
+        error_decidegrees: Angle error in decidegrees
+
+    Returns:
+        Wrapped angle error in decidegrees, always taking the shortest path
+    """
+    # Wrap to [-1800, 1800] decidegrees ([-180, 180] degrees) using modulo
+    error_decidegrees = error_decidegrees % 3600# First wrap to [0, 3600)
+    if error_decidegrees > 1800:
+        error_decidegrees -= 3600# Shift to [-1800, 1800]
+    return error_decidegrees
+
+def move(forward_speed, turn_speed, max_acceleration):
+    """
+    Apply tank drive control with forward and turning speeds.
+
+    Args:
+        forward_speed: Base forward speed for both motors
+        turn_speed: Differential speed for turning (positive = right turn)
+        max_acceleration: Maximum acceleration for motors
+    """
+    left_speed = int(forward_speed + turn_speed)
+    right_speed = int(forward_speed - turn_speed)
+    motor_pair.move_tank(motor_pair.PAIR_1, left_speed, right_speed, acceleration=max_acceleration)
+
+async def move_turn(target_yaw, max_speed=300, max_acceleration=1000, kp_yaw=0.3, kd_yaw=0.05, min_speed=0, control_period_ms=20, tolerance_decidegrees=5, max_yaw_rate_decidegrees_per_sec=50):
+    """
+    Turn the robot to a specific yaw angle using PD control and update global target_yaw_decidegrees.
+
+    Args:
+        target_yaw (float): Target yaw angle in degrees
+        max_speed (float): Maximum turning speed
+        max_acceleration (float): Maximum acceleration
+        kp_yaw (float): Proportional gain for yaw control
+        kd_yaw (float): Derivative gain for yaw control (damping)
+        min_speed (float): Minimum turning speed to prevent stalling
+        control_period_ms (int): Control loop period in milliseconds
+        tolerance_decidegrees (int): Acceptable error in decidegrees (default: 1.0 degrees)
+        max_yaw_rate_decidegrees_per_sec (int): Maximum yaw rate in decidegrees/sec for stopping (default: 50, i.e. 5 deg/sec)
+    """
+    global target_yaw_decidegrees
+
+    # Convert target from degrees to decidegrees
+    target_decidegrees = target_yaw * 10
+    max_speed = abs(max_speed)# Ensure max_speed is positive
+
+    # Initialize control variables
+    start_time = time.ticks_us()
+    last_control_time = start_time
+    control_period_us = control_period_ms * 1000# Convert to microseconds
+
+    # Initialize state variables
+    yaw_error_decidegrees = tolerance_decidegrees + 1# Start above tolerance to enter loop
+    previous_yaw_error_decidegrees = 0
+    error_derivative = 0
+    p_term = 0
+    d_term = 0
+    turn_speed = 0
+    cur_100m_number = 0
+    current_yaw_decidegrees = 0
+    yaw_rate_decidegrees_per_sec = 0
+
+    if not production:
+        linegraph.clear_all()
+        print("Turning to:", target_yaw, "degrees (PD control)")
+
+    # Main control loop with scheduler
+    while abs(yaw_error_decidegrees) > tolerance_decidegrees or abs(yaw_rate_decidegrees_per_sec) > max_yaw_rate_decidegrees_per_sec:
+        current_time = time.ticks_us()
+
+        # Check if it's time for next control update
+        if time.ticks_diff(current_time, last_control_time) >= control_period_us:
+            # Store previous error for derivative calculation
+            previous_yaw_error_decidegrees = yaw_error_decidegrees
+
+            # Get current yaw angle (robot heading in decidegrees, 0.1 degrees)
+            current_yaw_decidegrees, _, _ = motion_sensor.tilt_angles()
+
+            # Get yaw rate directly from gyroscope (angular velocity around z-axis)
+            # angular_velocity(True) returns [x, y, z] in decidegrees per second
+            _, _, yaw_rate_decidegrees_per_sec = motion_sensor.angular_velocity(True)
+
+            yaw_error_decidegrees = target_decidegrees - current_yaw_decidegrees
+
+            # Wrap angle error to handle ±180° boundary crossing
+            yaw_error_decidegrees = wrap_angle_error_decidegrees(yaw_error_decidegrees)
+
+            # Calculate derivative of error (rate of change)
+            dt_sec = time.ticks_diff(current_time, last_control_time) / 1000000.0# Convert to seconds
+            if dt_sec > 0:
+                error_derivative = (yaw_error_decidegrees - previous_yaw_error_decidegrees) / dt_sec
+            else:
+                error_derivative = 0
+
+            # Calculate PD controller terms separately for monitoring
+            # P term: responds to current error
+            p_term = -kp_yaw * yaw_error_decidegrees
+            # D term: responds to rate of change of error (provides damping)
+            d_term = -kd_yaw * error_derivative
+
+            # Combine P and D terms
+            turn_speed = p_term + d_term
+
+            # Speed limiting (maintain sign for direction)
+            if turn_speed > 0:
+                turn_speed = max(min_speed, min(max_speed, turn_speed))
+            else:
+                turn_speed = min(-min_speed, max(-max_speed, turn_speed))
+
+            # Apply control - forward speed is zero, only turning
+            move(0, turn_speed, max_acceleration)
+
+            # Update last control time
+            last_control_time = current_time
+
+        # Logging at 10Hz (every 100ms)
+        if not production and (time.ticks_diff(current_time, start_time) > cur_100m_number * 100000):
+            linegraph.plot(0, cur_100m_number, yaw_error_decidegrees)# Yaw error (decidegrees)
+            linegraph.plot(1, cur_100m_number, int(turn_speed))# Turn speed (PD output)
+            linegraph.plot(2, cur_100m_number, int(p_term))# P channel (proportional term)
+            linegraph.plot(3, cur_100m_number, int(d_term))# D channel (derivative term)
+            linegraph.plot(4, cur_100m_number, int(yaw_rate_decidegrees_per_sec))# Yaw rate from IMU
+            cur_100m_number = cur_100m_number + 1
+
+        # Check for timeout (5 seconds)
+        if time.ticks_diff(current_time, start_time) > 5000000:
+            if not production:
+                print("Turn timeout reached")
+            break
+
+    # Stop motors
+    motor_pair.stop(motor_pair.PAIR_1, stop=motor.SMART_BRAKE)
+
+    # Update global target for move_straight_line to use
+    target_yaw_decidegrees = target_decidegrees
+
+    if not production:
+        final_yaw_error_degrees = yaw_error_decidegrees / 10.0
+        final_yaw_rate_degrees_per_sec = yaw_rate_decidegrees_per_sec / 10.0
+        print("Turn completed. Yaw error:", final_yaw_error_degrees, "deg, Yaw rate:", final_yaw_rate_degrees_per_sec, "deg/sec")
+
+async def move_turn2(target_yaw, r=1.0, max_speed=500, max_acceleration=2000, tolerance_decidegrees=10, max_iterations=10):
+    """
+    Turn the robot to a specific yaw angle using iterative geometric control (step-wise position control).
+    This approach calculates required motor degrees based on geometry and iteratively corrects.
+
+    Args:
+        target_yaw (float): Target yaw angle in degrees
+        r (float): Step size factor 0-1 (accounts for slippage/errors, default 0.9)
+        max_speed (int): Motor speed for position movements (default 500)
+        max_acceleration (int): Maximum acceleration for motors (default 1000)
+        tolerance_decidegrees (int): Acceptable error in decidegrees (default: 5)
+        max_iterations (int): Maximum correction iterations (default: 10)
+
+    Returns:
+        Number of iterations taken
+    """
+    global target_yaw_decidegrees, wheelbase, diameter
+
+    # Convert target from degrees to decidegrees
+    target_decidegrees = target_yaw * 10
+
+    # Get initial yaw angle
+    current_yaw_decidegrees, _, _ = motion_sensor.tilt_angles()
+    yaw_error_decidegrees = target_decidegrees - current_yaw_decidegrees
+    yaw_error_decidegrees = wrap_angle_error_decidegrees(yaw_error_decidegrees)
+
+    iteration = 0
+    start_time = time.ticks_us()
+
+    if not production:
+        linegraph.clear_all()
+        print("Turning to:", target_yaw, "degrees (Geometric control)")
+
+    # Iterative correction loop
+    while abs(yaw_error_decidegrees) > tolerance_decidegrees and iteration < max_iterations:
+        # Calculate required turn angle in degrees
+        yaw_error_degrees = yaw_error_decidegrees / 10.0
+
+        # Calculate arc length each wheel needs to travel for this turn
+        # For differential drive: arc_length = (wheelbase / 2) * angle_radians
+        angle_radians = yaw_error_degrees * 3.141592 / 180.0
+        arc_length_cm = (wheelbase / 2.0) * angle_radians
+
+        # Convert arc length to motor degrees
+        # motor_degrees = arc_length / wheel_circumference * 360
+        wheel_circumference = diameter * 3.141592
+        motor_degrees_required = (arc_length_cm / wheel_circumference) * 360.0
+
+        # Apply step factor r to account for slippage and errors
+        motor_degrees_step = motor_degrees_required * r
+
+        if not production:
+            print("Iteration", iteration + 1, ": Error =", yaw_error_degrees, "deg, Motor step =", motor_degrees_step, "deg")
+
+        # Move motors using motor_pair for synchronized turning
+        # motor_degrees_step > 0: right turn (left forward, right backward)
+        # motor_degrees_step < 0: left turn (left backward, right forward)
+        motor_degrees_int = int(motor_degrees_step)
+
+        if abs(motor_degrees_int) > 0:# Only move if step is significant
+            # Use motor_pair.move_tank_for_degrees for synchronized movement
+            # Left motor speed is negative for forward, positive for backward
+            # Right motor speed is positive for forward, negative for backward
+            # For in-place turn, motors move same distance in opposite directions
+            await motor_pair.move_tank_for_degrees(
+                motor_pair.PAIR_1,
+                motor_degrees_int,# Amount to rotate
+                -max_speed,# Left motor velocity (negative = forward)
+                max_speed,# Right motor velocity (positive = forward)
+                acceleration=max_acceleration
+            )
+
+            # Additional settling time
+            await runloop.sleep_ms(100)
+        else:
+            if not production:
+                print("Step too small, skipping")
+
+        # Measure new yaw angle
+        current_yaw_decidegrees, _, _ = motion_sensor.tilt_angles()
+        yaw_error_decidegrees = target_decidegrees - current_yaw_decidegrees
+        yaw_error_decidegrees = wrap_angle_error_decidegrees(yaw_error_decidegrees)
+
+        # Log for telemetry
+        if not production:
+            linegraph.plot(0, iteration, yaw_error_decidegrees)
+            linegraph.plot(1, iteration, int(motor_degrees_step))
+
+        iteration += 1
+
+    # Update global target for move_straight_line to use
+    target_yaw_decidegrees = target_decidegrees
+
+    total_time_ms = time.ticks_diff(time.ticks_us(), start_time) / 1000.0
+
+    if not production:
+        final_yaw_error_degrees = yaw_error_decidegrees / 10.0
+        print("Turn completed in", iteration, "iterations,", total_time_ms, "ms")
+        print("Final yaw error:", final_yaw_error_degrees, "degrees")
+
+    return iteration
+
+async def move_straight_line2(distance_cm, r_position=0.9, r_velocity=0.05, max_speed=500, max_acceleration=500, kp_speed=2.0, min_speed=50, control_period_ms=20, max_turn_speed=200):
+    """
+    Move the robot in a straight line using geometric step-wise heading control.
+    Instead of PD gains, calculates turn speed geometrically from heading error and yaw rate.
+
+    Args:
+        distance_cm (float): Target distance in centimeters (positive for forward, negative for backward)
+        r_position (float): Position correction factor 0-1 (accounts for heading error, default 0.9)
+        r_velocity (float): Velocity damping factor 0-1 (accounts for yaw rate, default 0.05)
+        max_speed (float): Maximum speed limit (absolute value)
+        max_acceleration (float): Maximum acceleration in deg/s²
+        kp_speed (float): Proportional gain for speed control
+        min_speed (float): Minimum speed to prevent stalling (default: 50)
+        control_period_ms (int): Control loop period in milliseconds (default: 20ms = 50Hz)
+        max_turn_speed (float): Maximum turn speed limit (absolute value, default: 200)
+    """
+    global target_yaw_decidegrees, wheelbase, diameter
+
+    # Determine movement direction
+    movement_sign = 1 if distance_cm >= 0 else -1
+    abs_distance_cm = abs(distance_cm)
+    max_speed = abs(max_speed)# Ensure max_speed is positive
+
+    # Initialize motor positions
+    motor_l_ang0 = motor.relative_position(motor_port_l)
+    motor_r_ang0 = motor.relative_position(motor_port_r)
+
+    # Calculate target motor rotation (in degrees) for the desired distance
+    target_motor_degrees = distance_to_motor_degrees(abs_distance_cm)
+
+    # Initialize control variables
+    start_time = time.ticks_us()
+    last_control_time = start_time
+    control_period_us = control_period_ms * 1000# Convert to microseconds
+
+    # Initialize state variables
+    distance_error_degrees = target_motor_degrees# Remaining distance to travel (in motor degrees)
+    turn_speed = 0
+    turn_speed_position = 0
+    turn_speed_velocity = 0
+    yaw_error_decidegrees = 0# Heading error in decidegrees (0.1 degrees)
+    yaw_rate_decidegrees_per_sec = 0
+    cur_100m_number = 0
+    distance_traveled_degrees = 0# Distance traveled so far (in motor degrees)
+    forward_speed = 0
+    if not production:
+        linegraph.clear_all()
+
+    # Main control loop with scheduler
+    while distance_error_degrees > 0:
+        current_time = time.ticks_us()
+
+        # Check if it's time for next control update
+        if time.ticks_diff(current_time, last_control_time) >= control_period_us:
+            # Get current yaw angle (robot heading in decidegrees, 0.1 degrees)
+            current_yaw_decidegrees, _, _ = motion_sensor.tilt_angles()
+
+            # Get yaw rate directly from gyroscope (angular velocity around z-axis)
+            _, _, yaw_rate_decidegrees_per_sec = motion_sensor.angular_velocity(True)
+
+            # Use global target_yaw_decidegrees (set by move_turn function)
+            yaw_error_decidegrees = target_yaw_decidegrees - current_yaw_decidegrees
+
+            # Wrap angle error to handle ±180° boundary crossing
+            yaw_error_decidegrees = wrap_angle_error_decidegrees(yaw_error_decidegrees)
+
+            # Get current motor positions (in degrees)
+            motor_l_degrees = float(motor.relative_position(motor_port_l)) - motor_l_ang0
+            motor_r_degrees = float(motor.relative_position(motor_port_r)) - motor_r_ang0
+
+            # Calculate distance traveled (accounting for mirror motor configuration)
+            avg_motor_degrees_signed = (-motor_l_degrees + motor_r_degrees) / 2# Invert left motor
+
+            # Distance tracking: use absolute value for remaining distance calculation
+            distance_traveled_degrees = abs(avg_motor_degrees_signed)
+            distance_error_degrees = target_motor_degrees - distance_traveled_degrees
+
+            # Geometric calculation of turn speed based on heading error and yaw rate
+            # Convert heading error to degrees
+            yaw_error_degrees = yaw_error_decidegrees / 10.0
+
+            # Position-based correction: proportional to heading error
+            # Geometric relationship: turn_speed affects yaw rate through wheelbase/diameter
+            # For correction proportional to error angle
+            turn_speed_position = -yaw_error_degrees * (wheelbase / diameter) * r_position
+
+            # Velocity-based correction: counteract current rotation (damping)
+            # Geometric relationship: yaw_rate (deg/s) = turn_speed × (diameter / wheelbase)
+            # Therefore: turn_speed = yaw_rate × (wheelbase / diameter)
+            yaw_rate_degrees_per_sec = yaw_rate_decidegrees_per_sec / 10.0
+            turn_speed_velocity = -yaw_rate_degrees_per_sec * (wheelbase / diameter) * r_velocity
+
+            # Combine position and velocity corrections
+            turn_speed = turn_speed_position + turn_speed_velocity
+
+            # Distance control (P only)
+            forward_speed = distance_error_degrees * kp_speed * movement_sign
+
+            # Turn speed limiting (clip to max_turn_speed)
+            turn_speed = max(-max_turn_speed, min(max_turn_speed, turn_speed))
+
+            # Speed limiting (maintain sign)
+            if forward_speed > 0:
+                forward_speed = max(min_speed, min(max_speed, forward_speed))
+            else:
+                forward_speed = min(-min_speed, max(-max_speed, forward_speed))
+
+            # Apply control - only when scheduled
+            move(forward_speed, turn_speed, max_acceleration)
+
+            # Update last control time
+            last_control_time = current_time
+
+        # Logging at 10Hz (every 100ms)
+        if not production and time.ticks_diff(current_time, start_time) > cur_100m_number * 100000:
+            linegraph.plot(0, cur_100m_number, yaw_error_decidegrees)# Heading error (decidegrees)
+            linegraph.plot(1, cur_100m_number, int(turn_speed))# Turn correction speed (geometric)
+            linegraph.plot(2, cur_100m_number, int(forward_speed))# Forward speed
+            linegraph.plot(3, cur_100m_number, int(turn_speed_position))# Position-based correction
+            linegraph.plot(4, cur_100m_number, int(turn_speed_velocity))# Velocity-based correction
+            cur_100m_number = cur_100m_number + 1
+
+        # Check for timeout (5 seconds)
+        if time.ticks_diff(current_time, start_time) > 5000000:
+            if not production:
+                print("Timeout reached")
+            break
+
+    # Stop motors
+    motor_pair.stop(motor_pair.PAIR_1, stop=motor.SMART_BRAKE)
+    if not production:
+        distance_error_cm = motor_degrees_to_distance(distance_error_degrees)
+        yaw_error_degrees = yaw_error_decidegrees / 10.0# Convert back to degrees for display
+        print("Distance error remaining:", distance_error_cm, "cm")
+        print("Yaw error remaining:", yaw_error_degrees, "degrees")
+
+async def move_straight_line(distance_cm, max_speed=500, max_acceleration=500, kp_yaw=2.0, kd_yaw=0.0, kp_speed=2.0, min_speed=50, control_period_ms=20, max_turn_speed=20):
+    """
+    Move the robot in a straight line for a specified distance with PD control for heading.
+    Uses the global target_yaw_decidegrees for heading control.
+
+    Args:
+        distance_cm (float): Target distance in centimeters (positive for forward, negative for backward)
+        max_speed (float): Maximum speed limit (absolute value)
+        max_acceleration (float): Maximum acceleration in deg/s²
+        kp_yaw (float): Proportional gain for heading control
+        kd_yaw (float): Derivative gain for heading control (damping, default: 0.0)
+        kp_speed (float): Proportional gain for speed control
+        min_speed (float): Minimum speed to prevent stalling (default: 20)
+        control_period_ms (int): Control loop period in milliseconds (default: 20ms = 50Hz)
+        max_turn_speed (float): Maximum turn speed limit (absolute value, default: 100)
+    """
+    global target_yaw_decidegrees
+    # Determine movement direction
+    movement_sign = 1 if distance_cm >= 0 else -1
+    abs_distance_cm = abs(distance_cm)
+    max_speed = abs(max_speed)# Ensure max_speed is positive
+
+    # Initialize motor positions
+    motor_l_ang0 = motor.relative_position(motor_port_l)
+    motor_r_ang0 = motor.relative_position(motor_port_r)
+
+    # Calculate target motor rotation (in degrees) for the desired distance
+    target_motor_degrees = distance_to_motor_degrees(abs_distance_cm)
+
+    # Initialize control variables
+    start_time = time.ticks_us()
+    last_control_time = start_time
+    control_period_us = control_period_ms * 1000# Convert to microseconds
+
+    # Initialize state variables
+    distance_error_degrees = target_motor_degrees# Remaining distance to travel (in motor degrees)
+    turn_speed = 0
+    yaw_error_decidegrees = 0# Heading error in decidegrees (0.1 degrees)
+    previous_yaw_error_decidegrees = 0
+    yaw_error_derivative = 0
+    p_term_yaw = 0
+    d_term_yaw = 0
+    cur_100m_number = 0
+    distance_traveled_degrees = 0# Distance traveled so far (in motor degrees)
+    forward_speed = 0
+    if not production:
+        linegraph.clear_all()
+
+    # Main control loop with scheduler
+    while distance_error_degrees > 0:
+        current_time = time.ticks_us()
+
+        # Check if it's time for next control update
+        if time.ticks_diff(current_time, last_control_time) >= control_period_us:
+            # Store previous error for derivative calculation
+            previous_yaw_error_decidegrees = yaw_error_decidegrees
+
+            # Get current yaw angle (robot heading in decidegrees, 0.1 degrees)
+            current_yaw_decidegrees, _, _ = motion_sensor.tilt_angles()
+            # Use global target_yaw_decidegrees (set by move_turn function)
+            yaw_error_decidegrees = target_yaw_decidegrees - current_yaw_decidegrees
+
+            # Wrap angle error to handle ±180° boundary crossing
+            yaw_error_decidegrees = wrap_angle_error_decidegrees(yaw_error_decidegrees)
+
+            # Calculate derivative of yaw error (rate of change)
+            dt_sec = time.ticks_diff(current_time, last_control_time) / 1000000.0# Convert to seconds
+            if dt_sec > 0:
+                yaw_error_derivative = (yaw_error_decidegrees - previous_yaw_error_decidegrees) / dt_sec
+            else:
+                yaw_error_derivative = 0
+
+            # Get current motor positions (in degrees)
+            motor_l_degrees = float(motor.relative_position(motor_port_l)) - motor_l_ang0
+            motor_r_degrees = float(motor.relative_position(motor_port_r)) - motor_r_ang0
+
+            # Calculate distance traveled (accounting for mirror motor configuration)
+            # Left motor is mirrored: forward = negative degrees, backward = positive degrees
+            # Right motor is normal: forward = positive degrees, backward = negative degrees
+            # For forward movement: left_degrees < 0, right_degrees > 0
+            # For backward movement: left_degrees > 0, right_degrees < 0
+            avg_motor_degrees_signed = (-motor_l_degrees + motor_r_degrees) / 2# Invert left motor
+
+            # Distance tracking: use absolute value for remaining distance calculation
+            distance_traveled_degrees = abs(avg_motor_degrees_signed)
+            distance_error_degrees = target_motor_degrees - distance_traveled_degrees
+
+            # Calculate PD control for yaw correction (heading control)
+            # P term: responds to current heading error
+            p_term_yaw = -kp_yaw * yaw_error_decidegrees
+            # D term: responds to rate of change of heading error (provides damping)
+            d_term_yaw = -kd_yaw * yaw_error_derivative
+
+            # Combine P and D terms
+            turn_speed = p_term_yaw + d_term_yaw
+
+            # Distance control (P only)
+            forward_speed = distance_error_degrees * kp_speed * movement_sign
+
+            # Turn speed limiting (clip to max_turn_speed)
+            turn_speed = max(-max_turn_speed, min(max_turn_speed, turn_speed))
+
+            # Speed limiting (maintain sign)
+            if forward_speed > 0:
+                forward_speed = max(min_speed, min(max_speed, forward_speed))
+            else:
+                forward_speed = min(-min_speed, max(-max_speed, forward_speed))
+
+            # Apply control - only when scheduled
+            move(forward_speed, turn_speed, max_acceleration)
+
+            # Update last control time
+            last_control_time = current_time
+
+        # Logging at 10Hz (every 100ms)
+        if not production and time.ticks_diff(current_time, start_time) > cur_100m_number * 100000:
+            linegraph.plot(0, cur_100m_number, yaw_error_decidegrees)# Heading error (decidegrees)
+            linegraph.plot(1, cur_100m_number, int(turn_speed))# Turn correction speed (PD output)
+            linegraph.plot(2, cur_100m_number, int(forward_speed))# Forward speed
+            linegraph.plot(3, cur_100m_number, int(p_term_yaw))# P channel for yaw
+            linegraph.plot(4, cur_100m_number, int(d_term_yaw))# D channel for yaw
+            cur_100m_number = cur_100m_number + 1
+
+        # Check for timeout (5 seconds)
+        if time.ticks_diff(current_time, start_time) > 5000000:
+            if not production:
+                print("Timeout reached")
+            break
+
+        # Align to desired angle to correct any heading drift
+        #runloop.sleep_ms(200)
+        #target_yaw_degrees = target_yaw_decidegrees / 10.0
+        #await move_turn2(target_yaw_degrees)
+
+
+    # Stop motors
+    motor_pair.stop(motor_pair.PAIR_1, stop=motor.SMART_BRAKE)
+    if not production:
+        distance_error_cm = motor_degrees_to_distance(distance_error_degrees)
+        yaw_error_degrees = yaw_error_decidegrees / 10.0# Convert back to degrees for display
+        print("Distance error remaining:", distance_error_cm, "cm")
+        print("Yaw error remaining:", yaw_error_degrees, "degrees")
+
+async def move_arm_to_degree(motor_port, target_degree, direction, speed=1000):
+    """
+    Move an arm motor to an absolute position.
+
+    Args:
+        motor_port: The port of the motor to move (e.g., front_arm_motor, back_arm_motor)
+        target_degree: Target absolute position in degrees
+        direction: Direction of motor movement (motor.CLOCKWISE or motor.COUNTERCLOCKWISE)
+        speed: Speed of movement (default: 1000)
+    """
+    await motor.run_to_absolute_position(motor_port, target_degree, speed, direction=direction)
+    runloop.sleep_ms(200)
+
+async def pre_launch(back_distance_cm=0.5):
+    """
+    Pre-launch routine: move back slightly and reset the IMU yaw angle to zero.
+
+    Args:
+        back_distance_cm: Distance to move backward in centimeters (default: 0.5)
+    """
+    global target_yaw_decidegrees
+
+    # Move back slightly
+    await move_straight_line(-back_distance_cm)
+
+    # Reset the yaw angle to zero
+    motion_sensor.reset_yaw(0)
+    await runloop.sleep_ms(200)# Give the sensor time to process the reset
+
+    # Update global target yaw to match the reset
+    target_yaw_decidegrees = 0
+
+runloop.run(main())
